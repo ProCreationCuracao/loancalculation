@@ -5,20 +5,22 @@ let _allLoans = [], _paymentsMap = {};
 let expandedLoanIds = new Set(), currentLoanId = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // Load saved rate
+  // Load saved interest rate
   const saved = localStorage.getItem("interestRate");
   if (saved) defaultInterestRate = parseFloat(saved);
   document.getElementById("interestRateInput").value = defaultInterestRate * 100;
 
-  // Tab init
+  // Initialize tabs
   selectTab("dashboard", document.getElementById("segDash"));
 
-  // Click-away to close modals
-  document.getElementById("loanModal").addEventListener("click", e => {
-    if (e.target.id === "loanModal") toggleLoanForm(false);
-  });
-  document.getElementById("paymentModal").addEventListener("click", e => {
-    if (e.target.id === "paymentModal") togglePaymentModal(false);
+  // Click-away to close modals (works on iOS too)
+  document.querySelectorAll(".modal").forEach(modal => {
+    modal.addEventListener("click", e => {
+      if (e.target === modal) {
+        if (modal.id === "loanModal") toggleLoanForm(false);
+        else if (modal.id === "paymentModal") togglePaymentModal(false);
+      }
+    });
   });
 
   await loadAllData();
@@ -35,13 +37,13 @@ function selectTab(id, btn) {
 }
 
 async function loadAllData() {
-  let { data: loans } = await sb
+  const { data: loans } = await sb
     .from("loans")
     .select("*")
     .order("start_date", { ascending: false });
   _allLoans = loans || [];
 
-  let { data: payments } = await sb
+  const { data: payments } = await sb
     .from("payments")
     .select("*")
     .order("date", { ascending: true });
@@ -87,7 +89,10 @@ async function updateDashboard() {
     data: {
       labels: ["Active", "Completed"],
       datasets: [{
-        data: [activeCt, loans.filter(l => l.status === "completed").length],
+        data: [
+          activeCt,
+          loans.filter(l => l.status === "completed").length
+        ],
         backgroundColor: ["#42a5f5", "#66bb6a"]
       }]
     }
@@ -103,7 +108,7 @@ function buildSchedule(principal, rate, months) {
     const rem = totalDue - payment;
     const nextInt = m < months ? rem * rate : 0;
     const nextTot = rem + nextInt;
-    sched.push({ month: m, curr: totalDue, payment, rem, nextInt, nextTot });
+    sched.push({ month: m, payment, nextInt });
     totalDue = nextTot;
   }
   return sched;
@@ -114,34 +119,38 @@ function calculateLoan() {
   const months = parseInt(document.getElementById("calcMonths").value, 10);
   if (!amt || !months) return;
 
-  const interest = amt * defaultInterestRate;
-  const total = amt + interest;
-  const monthly = total / months;
+  // Build the repayment schedule
+  const sched = buildSchedule(amt, defaultInterestRate, months);
 
-  document.getElementById("calcInterest").textContent = interest.toFixed(2);
-  document.getElementById("calcTotal").textContent = total.toFixed(2);
-  document.getElementById("calcMonthly").textContent = monthly.toFixed(2);
+  // Sum of all payments
+  const totalPaid = sched.reduce((s, r) => s + r.payment, 0);
+
+  // Total interest earned = totalPaid - principal
+  const totalInterest = totalPaid - amt;
+
+  // Populate summary fields
+  document.getElementById("calcInterest").textContent = totalInterest.toFixed(2);
+  document.getElementById("calcTotal").textContent = totalPaid.toFixed(2);
+  document.getElementById("calcMonthly").textContent = (totalPaid / months).toFixed(2);
   document.getElementById("calcResults").style.display = "grid";
 
-  const sched = buildSchedule(amt, defaultInterestRate, months);
+  // Render schedule table
   let html = `<table><thead><tr>
-      <th>Mo</th><th>Curr Due</th><th>Payment</th><th>Rem</th><th>Int</th><th>Next Due</th>
+      <th>Mo</th><th>Payment</th><th>Interest</th>
     </tr></thead><tbody>`;
   sched.forEach(r => {
     html += `<tr>
-        <td>${r.month}</td>
-        <td>${r.curr.toFixed(2)}</td>
-        <td>${r.payment.toFixed(2)}</td>
-        <td>${r.rem.toFixed(2)}</td>
-        <td>${r.nextInt.toFixed(2)}</td>
-        <td>${r.nextTot.toFixed(2)}</td>
-      </tr>`;
+      <td>${r.month}</td>
+      <td>${r.payment.toFixed(2)}</td>
+      <td>${r.nextInt.toFixed(2)}</td>
+    </tr>`;
   });
   html += `</tbody></table>`;
   document.getElementById("calcSchedule").innerHTML = html;
 
+  // Show total interest earned
   document.getElementById("calcTotalInterest").textContent =
-    `Total Interest Earned: ${interest.toFixed(2)} XCG`;
+    `Total Interest Earned: ${totalInterest.toFixed(2)} XCG`;
 }
 
 function prefillLoanForm() {
@@ -183,7 +192,7 @@ function applyFilters() {
         <p><strong>Interest on rem (25%):</strong> ${(rem * defaultInterestRate).toFixed(2)} XCG</p>
         <p><strong>Next Due:</strong>             ${(rem + rem * defaultInterestRate).toFixed(2)} XCG</p>
         <p><strong>Status:</strong>              ${disp}</p><hr>
-        ${payments.map((p, i) => `<p>● [${p.date}] ${p.amount.toFixed(2)}</p>`).join("")}
+        ${payments.map(p => `<p>● [${p.date}] ${p.amount.toFixed(2)}</p>`).join("")}
       </div>`;
     card.onclick = () => {
       const open = card.classList.toggle("expanded");
@@ -236,7 +245,7 @@ function setInterestRate(v) {
   localStorage.setItem("interestRate", defaultInterestRate);
 }
 
-// Expose handlers
+// Expose
 window.selectTab = selectTab;
 window.calculateLoan = calculateLoan;
 window.prefillLoanForm = prefillLoanForm;
