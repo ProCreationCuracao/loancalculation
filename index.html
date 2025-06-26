@@ -1,38 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport"
-      content="width=device-width,
-               initial-scale=1.0,
-               maximum-scale=1.0,
-               user-scalable=no" />
-
+        content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
   <title>ProCreation Loan Manager</title>
+
   <link rel="stylesheet" href="style.css">
-  <!-- Chart.js -->
+
+  <!-- Chart.js & Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
-    // ─── YOUR Supabase CONFIG ────────────────────
-    const SUPABASE_URL      = "https:xczrpjcoqezlgnpevxxc.supabase.co";
+    const SUPABASE_URL      = "https://xczrpjcoqezlgnpevxxc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjenJwamNvcWV6bGducGV2eHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4ODkzNjcsImV4cCI6MjA2NjQ2NTM2N30.S7JlkTAcORatxZpwdhFt6RTc36SuMuRyRXlQLsEueSE";
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
+
 <body>
   <header>
-    <img src="logo.png" alt="Logo" class="logo" id="logo">
+    <img src="logo.png" class="logo" alt="Logo">
     <h1>Loan Manager</h1>
   </header>
 
-  <nav class="top-nav">
-    <button onclick="showTab('dashboard')">Dashboard</button>
-    <button onclick="showTab('calculator')">Calculator</button>
-    <button onclick="showTab('loans')">Loans</button>
-    <button onclick="showTab('settings')">Settings</button>
-  </nav>
+  <div class="segmented-control">
+    <button id="segDash"  class="active" onclick="selectTab('dashboard', this)">Dashboard</button>
+    <button id="segCalc"           onclick="selectTab('calculator', this)">Calculator</button>
+    <button id="segLoans"          onclick="selectTab('loans', this)">Loans</button>
+    <button id="segSettings"       onclick="selectTab('settings', this)">Settings</button>
+  </div>
 
   <main>
     <!-- Dashboard -->
@@ -52,68 +49,72 @@
     <!-- Calculator -->
     <section id="calculator" class="tab">
       <div class="calc-container">
-        <input type="number" id="calcAmount" placeholder="Loan Amount (XCG)">
-        <input type="number" id="calcMonths" placeholder="Duration (Months)">
+        <input type="number" id="calcAmount" placeholder="Loan Amount (XCG)" />
+        <input type="number" id="calcMonths" placeholder="Duration (Months)" />
         <button onclick="calculateLoan()">Calculate</button>
-        <div id="calcResults" class="results">
-          <div><strong>Interest:</strong> <span id="calcInterest"></span> XCG</div>
-          <div><strong>Total:</strong> <span id="calcTotal"></span> XCG</div>
-          <div><strong>Monthly:</strong> <span id="calcMonthly"></span> XCG</div>
+        <div id="calcResults" class="results" style="display:none">
+          <div><strong>Interest (25%):</strong> <span id="calcInterest"></span> XCG</div>
+          <div><strong>Total Due:</strong>    <span id="calcTotal"></span>    XCG</div>
+          <div><strong>Std Payment:</strong> <span id="calcMonthly"></span> XCG</div>
           <button class="create-btn" onclick="prefillLoanForm()">Create Loan</button>
         </div>
+        <!-- Dynamic schedule -->
+        <div id="calcSchedule" class="schedule"></div>
       </div>
     </section>
 
     <!-- Loans -->
     <section id="loans" class="tab">
-      <button class="fab" onclick="toggleLoanForm(true)">+</button>
+      <div class="loan-filters">
+        <input type="text" id="loanSearch" placeholder="Search by name…" oninput="applyFilters()" />
+        <select id="statusFilter" onchange="applyFilters()">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
       <div id="loanList" class="loan-list"></div>
     </section>
 
     <!-- Settings -->
     <section id="settings" class="tab">
       <div class="settings-container">
-        <label>Logo Position:
-          <select onchange="setLogoPosition(this.value)">
-            <option value="center">Center</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
-        <label>Theme Color:
-          <input type="color" onchange="setThemeColor(this.value)">
+        <label>
+          Default Interest (%/month):
+          <input id="interestRateInput" type="number" min="0" max="100" oninput="setInterestRate(this.value)" />%
         </label>
       </div>
     </section>
   </main>
 
+  <!-- FAB -->
+  <button class="fab" onclick="toggleLoanForm(true)">+</button>
+
   <!-- New Loan Modal -->
   <div id="loanModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="toggleLoanForm(false)">&times;</span>
+    <div class="bottom-sheet">
+      <div class="sheet-handle"></div>
       <h3>New Loan</h3>
-      <input type="text" id="name" placeholder="Customer Name">
-      <input type="text" id="phone" placeholder="Phone Number">
-      <input type="number" id="amount" placeholder="Loan Amount">
-      <input type="number" id="duration" placeholder="Duration (Months)">
-      <input type="date" id="startDate">
-      <label>ID Image: <input type="file" id="idImage" accept="image/*"></label>
-      <label>Signature: <input type="file" id="signature" accept="image/*"></label>
-      <button onclick="saveLoan()">Submit Loan</button>
+      <div class="form-group"><input id="name" placeholder="Customer Name" /></div>
+      <div class="form-group"><input id="phone" placeholder="Phone Number" /></div>
+      <div class="form-group"><input id="amount" placeholder="Loan Amount" type="number" /></div>
+      <div class="form-group"><input id="duration" placeholder="Duration (Months)" type="number" /></div>
+      <div class="form-group"><input id="startDate" type="date" /></div>
+      <button class="sheet-btn" onclick="saveLoan()">Submit Loan</button>
     </div>
   </div>
 
-   <!-- Payment Modal -->
-   <div id="paymentModal" class="modal">
-     <div class="modal-content">
-       <span class="close" onclick="togglePaymentModal(false)">&times;</span>
-       <h3>Register Payment</h3>
-+      <input type="date" id="paymentDate" />
-       <input type="number" id="paymentAmount" placeholder="Amount Paid" />
-       <button onclick="submitPayment()">Save Payment</button>
-     </div>
-   </div>
-
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal">
+    <div class="bottom-sheet">
+      <div class="sheet-handle"></div>
+      <h3>Register Payment</h3>
+      <div class="form-group"><input id="paymentDate" type="date" /></div>
+      <div class="form-group"><input id="paymentAmount" type="number" placeholder="Amount Paid" /></div>
+      <button class="sheet-btn" onclick="submitPayment()">Save Payment</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
