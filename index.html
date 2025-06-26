@@ -22,6 +22,7 @@
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
+
 <body>
   <header>
     <img src="logo.png" class="logo" alt="Logo">
@@ -64,6 +65,7 @@
           <button class="create-btn" onclick="prefillLoanForm()">Create Loan</button>
         </div>
 
+        <!-- NEW: card-based schedule -->
         <div id="calcSchedule" class="schedule"></div>
         <div id="calcTotalInterest" class="total-interest"></div>
       </div>
@@ -126,8 +128,7 @@
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .catch(console.error);
+      navigator.serviceWorker.register('service-worker.js').catch(console.error);
     }
   </script>
 </body>
