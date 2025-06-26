@@ -6,6 +6,11 @@
         content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
   <title>ProCreation Loan Manager</title>
 
+  <!-- PWA manifest & icons -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ec407a">
+  <link rel="apple-touch-icon" href="logo.png">
+
   <link rel="stylesheet" href="style.css">
 
   <!-- Chart.js & Supabase -->
@@ -17,7 +22,6 @@
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
-
 <body>
   <header>
     <img src="logo.png" class="logo" alt="Logo">
@@ -26,9 +30,9 @@
 
   <div class="segmented-control">
     <button id="segDash"  class="active" onclick="selectTab('dashboard', this)">Dashboard</button>
-    <button id="segCalc"           onclick="selectTab('calculator', this)">Calculator</button>
-    <button id="segLoans"          onclick="selectTab('loans', this)">Loans</button>
-    <button id="segSettings"       onclick="selectTab('settings', this)">Settings</button>
+    <button id="segCalc" onclick="selectTab('calculator', this)">Calculator</button>
+    <button id="segLoans" onclick="selectTab('loans', this)">Loans</button>
+    <button id="segSettings" onclick="selectTab('settings', this)">Settings</button>
   </div>
 
   <main>
@@ -52,12 +56,11 @@
         <input type="number" id="calcAmount" placeholder="Loan Amount (XCG)" />
         <input type="number" id="calcMonths" placeholder="Duration (Months)" />
         <button onclick="calculateLoan()">Calculate</button>
-        <p class="calc-note">* Assumes payment in full immediately (1 month).</p>
 
         <div id="calcResults" class="results" style="display:none">
-          <div><strong>Interest (25%):</strong> <span id="calcInterest"></span> XCG</div>
-          <div><strong>Total Due:</strong>    <span id="calcTotal"></span>    XCG</div>
-          <div><strong>Std Payment:</strong> <span id="calcMonthly"></span> XCG</div>
+          <div><strong>Total Paid:</strong>    <span id="calcTotal"></span>    XCG</div>
+          <div><strong>Total Interest:</strong> <span id="calcInterest"></span> XCG</div>
+          <div><strong>Std Payment:</strong>  <span id="calcMonthly"></span> XCG</div>
           <button class="create-btn" onclick="prefillLoanForm()">Create Loan</button>
         </div>
 
@@ -121,5 +124,11 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .catch(console.error);
+    }
+  </script>
 </body>
 </html>
