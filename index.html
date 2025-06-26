@@ -17,7 +17,6 @@
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
-
 <body>
   <header>
     <img src="logo.png" class="logo" alt="Logo">
@@ -52,13 +51,13 @@
         <input type="number" id="calcAmount" placeholder="Loan Amount (XCG)" />
         <input type="number" id="calcMonths" placeholder="Duration (Months)" />
         <button onclick="calculateLoan()">Calculate</button>
+        <p class="calc-note">* Assumes payment in full immediately (1 month).</p>
         <div id="calcResults" class="results" style="display:none">
           <div><strong>Interest (25%):</strong> <span id="calcInterest"></span> XCG</div>
           <div><strong>Total Due:</strong>    <span id="calcTotal"></span>    XCG</div>
           <div><strong>Std Payment:</strong> <span id="calcMonthly"></span> XCG</div>
           <button class="create-btn" onclick="prefillLoanForm()">Create Loan</button>
         </div>
-        <!-- Dynamic schedule -->
         <div id="calcSchedule" class="schedule"></div>
       </div>
     </section>
@@ -82,7 +81,8 @@
       <div class="settings-container">
         <label>
           Default Interest (%/month):
-          <input id="interestRateInput" type="number" min="0" max="100" oninput="setInterestRate(this.value)" />%
+          <input id="interestRateInput" type="number" min="0" max="100"
+                 oninput="setInterestRate(this.value)" />%
         </label>
       </div>
     </section>
@@ -98,8 +98,8 @@
       <h3>New Loan</h3>
       <div class="form-group"><input id="name" placeholder="Customer Name" /></div>
       <div class="form-group"><input id="phone" placeholder="Phone Number" /></div>
-      <div class="form-group"><input id="amount" placeholder="Loan Amount" type="number" /></div>
-      <div class="form-group"><input id="duration" placeholder="Duration (Months)" type="number" /></div>
+      <div class="form-group"><input id="amount" type="number" placeholder="Loan Amount" /></div>
+      <div class="form-group"><input id="duration" type="number" placeholder="Duration (Months)" /></div>
       <div class="form-group"><input id="startDate" type="date" /></div>
       <button class="sheet-btn" onclick="saveLoan()">Submit Loan</button>
     </div>
