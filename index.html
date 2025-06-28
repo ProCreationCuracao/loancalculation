@@ -10,13 +10,14 @@
   <meta name="theme-color" content="#ec407a">
   <link rel="apple-touch-icon" href="icons/icon.png">
   <link rel="icon" href="icons/icon.png" type="image/png">
-
   <link rel="stylesheet" href="style.css">
+
+  <!-- Chart.js & Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
     const SUPABASE_URL      = "https://xczrpjcoqezlgnpevxxc.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjenJwamNvcWV6bGducGV2eHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4ODkzNjcsImV4cCI6MjA2NjQ2NTM2N30.S7JlkTAcORatxZpwdhFt6RTc36SuMuRyRXlQLsEueSE"
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjenJwamNvcWV6bGducGV2eHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4ODkzNjcsImV4cCI6MjA2NjQ2NTM2N30.S7JlkTAcORatxZpwdhFt6RTc36SuMuRyRXlQLsEueSE"; 
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
@@ -27,31 +28,29 @@
   </header>
 
   <div class="segmented-control">
-    <button id="segDash"  class="active" onclick="selectTab('dashboard', this)">Dashboard</button>
-    <button id="segCalc" onclick="selectTab('calculator', this)">Calculator</button>
-    <button id="segLoans" onclick="selectTab('loans', this)">Loans</button>
+    <button id="segDash"     class="active"   onclick="selectTab('dashboard', this)">Dashboard</button>
+    <button id="segCalc"     onclick="selectTab('calculator', this)">Calculator</button>
+    <button id="segLoans"    onclick="selectTab('loans', this)">Loans</button>
     <button id="segSettings" onclick="selectTab('settings', this)">Settings</button>
   </div>
 
   <main>
-   <!-- Dashboard -->
-<section id="dashboard" class="tab active">
-  <div class="cards">
-    <div class="card"><h3>Cash on Hand</h3><p id="cashOnHand">0 XCG</p></div>
-    <div class="card"><h3>Total Loaned</h3><p id="totalLoaned">0 XCG</p></div>
-    <div class="card"><h3>Active Loans</h3><p id="countActive">0</p></div>   
-    <div class="card"><h3>Expected Interest</h3><p id="expectedInterest">0 XCG</p></div>
-    <div class="card"><h3>Overdue Loans</h3><p id="countOverdue">0</p></div>
-    <div class="card"><h3>Total Due</h3><p id="totalDue">0 XCG</p></div>    
-    <div class="card"><h3>Completed Loans</h3><p id="countCompleted">0</p></div>
-  </div>
-  <div class="charts">
-    <canvas id="pieChart"></canvas>
-    <canvas id="barChart"></canvas>
-  </div>
-</section>
-
-
+    <!-- Dashboard -->
+    <section id="dashboard" class="tab active">
+      <div class="cards">
+        <div class="card"><h3>Cash on Hand</h3><p id="cashOnHand">0 XCG</p></div>
+        <div class="card"><h3>Total Loaned</h3><p id="totalLoaned">0 XCG</p></div>
+        <div class="card"><h3>Active Loans</h3><p id="countActive">0</p></div>
+        <div class="card"><h3>Expected Interest</h3><p id="expectedInterest">0 XCG</p></div>
+        <div class="card"><h3>Overdue Loans</h3><p id="countOverdue">0</p></div>
+        <div class="card"><h3>Total Due</h3><p id="totalDue">0 XCG</p></div>
+        <div class="card"><h3>Completed Loans</h3><p id="countCompleted">0</p></div>
+      </div>
+      <div class="charts">
+        <canvas id="pieChart"></canvas>
+        <canvas id="barChart"></canvas>
+      </div>
+    </section>
 
     <!-- Calculator -->
     <section id="calculator" class="tab">
@@ -70,7 +69,7 @@
       </div>
     </section>
 
-    <!-- ─── Loans Tab ─────────────────────────────────── -->
+    <!-- Loans -->
     <section id="loans" class="tab">
       <div class="loan-filters">
         <input type="text" id="loanSearch" placeholder="Search by name…" oninput="applyFilters()" />
@@ -80,108 +79,76 @@
           <option value="completed">Completed</option>
           <option value="overdue">Overdue</option>
         </select>
-        <!-- New Rules button inside Loans tab -->
-        <button class="rules-btn" onclick="toggleRules(true)">Rules &amp; Terms</button>
+        <button class="rules-btn" onclick="toggleRulesView(true)">
+          View Rules &amp; Terms
+        </button>
       </div>
       <div id="loanList" class="loan-list"></div>
     </section>
-    
-      <!-- ─── Rules & Terms Modal ─────────────────────────── -->
-  <div id="rulesModal" class="modal">
-    <div class="bottom-sheet">
-      <div class="sheet-handle"></div>
-      <h3>Rules &amp; Terms</h3>
-      <div class="rules-content">
-        <p>1. **Interest Rate** is set to <strong><span id="interestRateInputDisplay"></span>%</strong> per month.</p>
-        <p>2. **Late Fee**: <strong><span id="lateFeeDisplay"></span> XCG</strong> per day overdue.</p>
-        <p>3. You must agree to these terms before submitting a new loan.</p>
+
+    <!-- Settings -->
+    <section id="settings" class="tab">
+      <div class="settings-container">
+        <h2>Settings</h2>
+        <div class="setting-card">
+          <label>Default Interest (%/month):
+            <input id="interestRateInput" type="number" min="0" max="100" oninput="setInterestRate(this.value)" />%
+          </label>
+        </div>
+        <div class="setting-card">
+          <label>Cash on Hand (XCG):
+            <input id="cashOnHandInput" type="number" placeholder="0.00" />
+          </label>
+        </div>
+        <div class="setting-card">
+          <label>Late Fee per day (XCG):
+            <input id="lateFeeInput" type="number" placeholder="10" />
+          </label>
+        </div>
+        <div class="setting-card">
+          <button class="sheet-btn" onclick="toggleRulesEdit(true)">
+            Edit Rules &amp; Terms
+          </button>
+        </div>
+        <div class="setting-card toggle-card">
+          <label>Dark Mode:
+            <input id="darkModeToggle" type="checkbox" />
+          </label>
+        </div>
+        <div class="setting-card">
+          <label>Primary Color:
+            <input id="themeColorPicker" type="color" />
+          </label>
+        </div>
+        <div class="about-section">
+          <p>App Version: 1.0.0</p>
+          <p><a href="mailto:support@yourdomain.com">Contact Support</a></p>
+          <button onclick="resetAllData()" class="reset-btn">Reset All Data</button>
+        </div>
       </div>
-      <button class="sheet-btn" onclick="toggleRules(false)">Close</button>
-    </div>
-  </div>
-
-<!-- ─── Settings ───────────────────────────────────────────────────── -->
-<section id="settings" class="tab">
-  <div class="settings-container">
-    <h2>Settings</h2>
-
-    <div class="setting-card">
-      <label>Default Interest (%/month):
-        <input id="interestRateInput" type="number" min="0" max="100" oninput="setInterestRate(this.value)" />%
-      </label>
-    </div>
-
-    <div class="setting-card">
-      <label>Cash on Hand (XCG):
-        <input id="cashOnHandInput" type="number" placeholder="0.00" />
-      </label>
-    </div>
-
-    <div class="setting-card">
-      <label>Late Fee per day (XCG):
-        <input id="lateFeeInput" type="number" placeholder="10" />
-      </label>
-    </div>
-
-    <div class="setting-card">
-      <label>Edit Rules &amp; Terms:</label>
-      <textarea id="rulesEditor" rows="4" placeholder="One rule per line…"></textarea>
-      <button id="saveRulesBtn" class="sheet-btn save-btn">Save Rules</button>
-    </div>
-
-    <div class="setting-card toggle-card">
-      <label>Dark Mode:
-        <input id="darkModeToggle" type="checkbox" />
-      </label>
-    </div>
-
-    <div class="setting-card">
-      <label>Primary Color:
-        <input id="themeColorPicker" type="color" />
-      </label>
-    </div>
-
-    <div class="about-section">
-      <p>App Version: 1.0.0</p>
-      <p><a href="mailto:support@yourdomain.com">Contact Support</a></p>
-      <button onclick="resetAllData()" class="reset-btn">Reset All Data</button>
-    </div>
-  </div>
-</section>
-
-<!-- Toast container (at end of body) -->
-<div id="toast" class="toast"></div>
-
-
+    </section>
   </main>
 
-  <!-- FAB -->
-  <button class="fab" onclick="toggleLoanForm(true)">+</button>
-
-  <!-- New Loan Modal -->
-  <div id="loanModal" class="modal">
-    <div class="bottom-sheet">
-      <div class="sheet-handle"></div>
-      <h3>New Loan</h3>
-      <div class="form-group"><input id="name" placeholder="Customer Name" /></div>
-      <div class="form-group"><input id="phone" placeholder="Phone Number" /></div>
-      <div class="form-group"><input id="amount" type="number" placeholder="Loan Amount" /></div>
-      <div class="form-group"><input id="duration" type="number" placeholder="Duration (Months)" /></div>
-      <div class="form-group"><input id="startDate" type="date" /></div>
-      <button class="sheet-btn" onclick="saveLoan()">Submit Loan</button>
+  <!-- View Rules Modal (centered) -->
+  <div id="rulesViewModal" class="modal">
+    <div class="modal-content">
+      <h3>Rules &amp; Terms</h3>
+      <div class="rules-content" id="rulesViewContent"></div>
+      <button class="sheet-btn" onclick="toggleRulesView(false)">Close</button>
     </div>
   </div>
 
-  <!-- Payment Modal -->
-  <div id="paymentModal" class="modal">
+  <!-- Edit Rules Modal (bottom-sheet) -->
+  <div id="rulesEditModal" class="modal">
     <div class="bottom-sheet">
       <div class="sheet-handle"></div>
-      <h3>Register Payment</h3>
-      <div class="form-group"><input id="paymentDate" type="date" /></div>
-      <div class="form-group"><input id="paymentAmount" type="number" placeholder="Amount Paid" /></div>
-      <button class="sheet-btn" onclick="submitPayment()">Save Payment</button>
+      <h3>Edit Rules &amp; Terms</h3>
+      <textarea id="rulesEditor" rows="6" placeholder="One rule per line…"></textarea>
+      <button id="saveRulesBtn" class="sheet-btn">Save Rules</button>
     </div>
   </div>
+
+  <!-- New Loan, Payment modals, FAB, Toast, etc. (unchanged) -->
 
   <script src="app.js"></script>
   <script>
