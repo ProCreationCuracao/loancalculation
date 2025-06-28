@@ -70,7 +70,7 @@
       </div>
     </section>
 
-    <!-- Loans -->
+    <!-- ─── Loans Tab ─────────────────────────────────── -->
     <section id="loans" class="tab">
       <div class="loan-filters">
         <input type="text" id="loanSearch" placeholder="Search by name…" oninput="applyFilters()" />
@@ -80,73 +80,78 @@
           <option value="completed">Completed</option>
           <option value="overdue">Overdue</option>
         </select>
+        <!-- New Rules button inside Loans tab -->
+        <button class="rules-btn" onclick="toggleRules(true)">Rules &amp; Terms</button>
       </div>
       <div id="loanList" class="loan-list"></div>
     </section>
+    
+      <!-- ─── Rules & Terms Modal ─────────────────────────── -->
+  <div id="rulesModal" class="modal">
+    <div class="bottom-sheet">
+      <div class="sheet-handle"></div>
+      <h3>Rules &amp; Terms</h3>
+      <div class="rules-content">
+        <p>1. **Interest Rate** is set to <strong><span id="interestRateInputDisplay"></span>%</strong> per month.</p>
+        <p>2. **Late Fee**: <strong><span id="lateFeeDisplay"></span> XCG</strong> per day overdue.</p>
+        <p>3. You must agree to these terms before submitting a new loan.</p>
+      </div>
+      <button class="sheet-btn" onclick="toggleRules(false)">Close</button>
+    </div>
+  </div>
 
-<!-- Settings (iOS-style grouped list) -->
+<!-- ─── Settings ───────────────────────────────────────────────────── -->
 <section id="settings" class="tab">
   <div class="settings-container">
+    <h2>Settings</h2>
 
-    <!-- Group 1: Appearance (unchanged) -->
-    <ul class="settings-group">
-      <li class="setting-item">
-        <span>Theme Color</span>
-        <input type="color" id="themeColorInput" />
-      </li>
-      <li class="setting-item">
-        <span>Logo Position</span>
-        <select id="logoPositionSelect">
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
-        </select>
-      </li>
-    </ul>
+    <div class="setting-card">
+      <label>Default Interest (%/month):
+        <input id="interestRateInput" type="number" min="0" max="100" oninput="setInterestRate(this.value)" />%
+      </label>
+    </div>
 
-    <!-- Group 2: Loan Defaults (unchanged) -->
-    <ul class="settings-group">
-      <li class="setting-item">
-        <span>Default Interest (%/month)</span>
-        <input type="number" id="interestRateInput" min="0" max="100" />%
-      </li>
-      <li class="setting-item">
-        <span>Cash on Hand</span>
-        <input type="number" id="cashOnHandInput" placeholder="0.00" />
-      </li>
-    </ul>
+    <div class="setting-card">
+      <label>Cash on Hand (XCG):
+        <input id="cashOnHandInput" type="number" placeholder="0.00" />
+      </label>
+    </div>
 
-    <!-- Group 3: Notifications & Fees -->
-    <ul class="settings-group">
-      <li class="setting-item toggle">
-        <span>Payment Reminders</span>
-        <label class="switch">
-          <input type="checkbox" id="remindersToggle" />
-          <span class="slider"></span>
-        </label>
-      </li>
-      <li class="setting-item">
-        <span>Late Fee (per day)</span>
-        <input type="number" id="lateFeeInput" min="0" step="0.01" /> XCG
-      </li>
-    </ul>
+    <div class="setting-card">
+      <label>Late Fee per day (XCG):
+        <input id="lateFeeInput" type="number" placeholder="10" />
+      </label>
+    </div>
 
-    <!-- Group 4: About & Danger Zone -->
-    <ul class="settings-group last">
-      <li class="setting-item">
-        <span>App Version</span><span>v1.0.3</span>
-      </li>
-      <li class="setting-item">
-        <span>Support</span>
-        <a href="mailto:support@yourapp.com" style="color:var(--primary); text-decoration:none;">Email Us</a>
-      </li>
-      <li class="setting-item destructive" onclick="resetAllData()">
-        <span>Reset All Data</span>
-      </li>
-    </ul>
+    <div class="setting-card">
+      <label>Edit Rules &amp; Terms:</label>
+      <textarea id="rulesEditor" rows="4" placeholder="One rule per line…"></textarea>
+      <button id="saveRulesBtn" class="sheet-btn save-btn">Save Rules</button>
+    </div>
 
+    <div class="setting-card toggle-card">
+      <label>Dark Mode:
+        <input id="darkModeToggle" type="checkbox" />
+      </label>
+    </div>
+
+    <div class="setting-card">
+      <label>Primary Color:
+        <input id="themeColorPicker" type="color" />
+      </label>
+    </div>
+
+    <div class="about-section">
+      <p>App Version: 1.0.0</p>
+      <p><a href="mailto:support@yourdomain.com">Contact Support</a></p>
+      <button onclick="resetAllData()" class="reset-btn">Reset All Data</button>
+    </div>
   </div>
 </section>
+
+<!-- Toast container (at end of body) -->
+<div id="toast" class="toast"></div>
+
 
   </main>
 

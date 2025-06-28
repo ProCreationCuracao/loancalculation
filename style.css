@@ -165,3 +165,141 @@ input:checked + .slider:before {
 .setting-item.destructive span {
   color: #e53935;
 }
+/* ─── Rules button in Loans tab ───────────────────────── */
+.rules-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.rules-btn:hover {
+  opacity: 0.9;
+}
+
+/* ─── Content inside the Rules modal ──────────────────── */
+.rules-content {
+  max-height: 50vh;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.rules-content p {
+  margin-bottom: 12px;
+}
+/* ─── Settings: textarea & save-btn ─────────────────────────────── */
+.rules-editor-label textarea {
+  width: 100%; padding: 12px; border:1px solid #ccc; border-radius:8px;
+  font-family: inherit; font-size:14px; resize: vertical; margin-top:4px;
+}
+.save-btn {
+  margin-top: 8px;
+  background: var(--primary);
+  color: #fff;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+}
+.save-btn:hover { opacity:0.9; }
+
+/* ─── Dark mode styling ─────────────────────────────────────────── */
+:root.dark {
+  --bg: #1e1e1e;
+  --fg: #ececec;
+  --card-bg: #2a2a2a;
+}
+.dark body { background: var(--bg); color: var(--fg); }
+.dark .card, .dark .loan-card, .dark .bottom-sheet { background: var(--card-bg); }
+
+/* ─── Modern UI tweaks ──────────────────────────────────────────── */
+/* Increase global spacing, smoother corners */
+body { line-height:1.6; }
+input, textarea, select, button {
+  transition: box-shadow .2s ease;
+}
+input:focus, textarea:focus, select:focus, button:focus {
+  box-shadow: 0 0 0 3px rgba(236,64,122,0.3);
+  outline: none;
+}
+
+/* About section */
+.about-section {
+  margin-top: 16px;
+  font-size: 13px;
+  text-align: center;
+}
+.about-section a { color: var(--primary); text-decoration: none; }
+.about-section a:hover { text-decoration: underline; }
+/* Settings “card” look */
+.settings-container h2 {
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+}
+.setting-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.setting-card label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.setting-card input[type="number"],
+.setting-card input[type="color"],
+.setting-card textarea {
+  width: 60%;
+  max-width: 200px;
+}
+.setting-card textarea {
+  width: 100%;
+  margin-top: 8px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* Save button spacing */
+.save-btn {
+  margin-top: 8px;
+  width: 100%;
+  background: var(--primary);
+  color: #fff;
+}
+.toggle-card label { justify-content: space-between; }
+
+/* Reset button */
+.reset-btn {
+  background: #e53935;
+  color: #fff;
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 2000;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
