@@ -5,53 +5,79 @@ let _allLoans = [], _paymentsMap = {};
 let expandedLoanIds = new Set(), currentLoanId = null;
 
 // ─── INIT ────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async function() {
+document.addEventListener("DOMContentLoaded", async () => {
   // Load saved interest rate
-  var saved = localStorage.getItem("interestRate");
-  if (saved) defaultInterestRate = parseFloat(saved);
+  const savedRate = localStorage.getItem("interestRate");
+  if (savedRate) defaultInterestRate = parseFloat(savedRate);
   document.getElementById("interestRateInput").value = defaultInterestRate * 100;
 
-  // Initialize tabs
-  selectTab("dashboard", document.getElementById("segDash"));
-
-  // Click-away to close modals
-  document.querySelectorAll(".modal").forEach(function(modal) {
-    modal.addEventListener("click", function(e) {
-      if (e.target === modal) {
-        if (modal.id === "loanModal")      toggleLoanForm(false);
-        else if (modal.id === "paymentModal") togglePaymentModal(false);
-      }
-    });
+  // Cash on Hand input
+  const cashInput = document.getElementById("cashOnHandInput");
+  const savedCash = localStorage.getItem("cashOnHand");
+  cashInput.value = savedCash !== null ? savedCash : "";
+  cashInput.addEventListener("input", e => {
+    localStorage.setItem("cashOnHand", e.target.value);
+    updateDashboard();
   });
 
-  // Load data & render
+  // Initialize tabs & modal click-away
+  selectTab("dashboard", document.getElementById("segDash"));
+  document.querySelectorAll(".modal").forEach(m =>
+    m.addEventListener("click", e => { if (e.target === m) m.classList.remove("show"); })
+  );
+
+  // Load data and render
   await loadAllData();
   updateDashboard();
 });
+// Late‐Fee per day
+const lateFeeInput = document.getElementById("lateFeeInput");
+lateFeeInput.value = localStorage.getItem("lateFee") || "10";
+lateFeeInput.addEventListener("input", e => {
+  localStorage.setItem("lateFee", e.target.value);
+});
+
+// App Version & Support need no JS—version is static, support opens mailto.
+
+// Reset All Data (already defined earlier)
+window.resetAllData = () => {
+  if (!confirm("Really clear all loans & payments?")) return;
+  // You could also delete via Supabase here if desired
+  localStorage.clear();
+  location.reload();
+};
 
 // ─── TABS ─────────────────────────────────────────────────────────────
 function selectTab(id, btn) {
   document.querySelectorAll(".segmented-control button")
-    .forEach(function(b){ b.classList.remove("active"); });
+    .forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
+
   document.querySelectorAll(".tab")
-    .forEach(function(t){ t.classList.remove("active"); });
+    .forEach(t => t.classList.remove("active"));
   document.getElementById(id).classList.add("active");
+
   document.querySelector(".fab").style.display = (id === "loans") ? "block" : "none";
 }
 
-// ─── DATA LOADING ────────────────────────────────────────────────────
+// ─── LOAD DATA ──────────────────────────────────────────────────────
 async function loadAllData() {
-  var r1 = await sb.from("loans").select("*").order("start_date",{ascending:false});
-  _allLoans = r1.data || [];
+  // Loans
+  const loansRes = await sb.from("loans")
+    .select("*")
+    .order("start_date", { ascending: false });
+  _allLoans = loansRes.data || [];
 
-  var r2 = await sb.from("payments").select("*").order("date",{ascending:true});
-  var pmts = r2.data || [];
+  // Payments
+  const payRes = await sb.from("payments")
+    .select("*")
+    .order("date", { ascending: true });
+  const payments = payRes.data || [];
 
   // Build payments map
   _paymentsMap = {};
-  for (var i = 0; i < pmts.length; i++) {
-    var p = pmts[i];
+  for (let i = 0; i < payments.length; i++) {
+    const p = payments[i];
     if (!_paymentsMap[p.loan_id]) _paymentsMap[p.loan_id] = [];
     _paymentsMap[p.loan_id].push(p);
   }
@@ -61,27 +87,59 @@ async function loadAllData() {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────
 async function updateDashboard() {
-  var loans = _allLoans;
-  document.getElementById("totalCustomers").textContent = loans.length;
+  // 1) Cash on Hand
+  const cash = parseFloat(localStorage.getItem("cashOnHand")) || 0;
+  document.getElementById("cashOnHand").textContent = cash.toFixed(2) + " XCG";
 
-  var loaned = loans.reduce(function(s, l){ return s + l.amount; }, 0);
-  var dueAmt = loans.reduce(function(s, l){
-    var initInt = l.amount * defaultInterestRate * l.duration;
-    var initTot = l.amount + initInt;
-    var paidSum = (_paymentsMap[l.id] || []).reduce(function(ss,p){
-      return ss + p.amount;
-    }, 0);
-    return s + (initTot - paidSum);
-  }, 0);
+  // 2) Aggregate loan stats
+  let totalLoaned        = 0;
+  let totalDue           = 0;
+  let expectedInterest   = 0;
+  let countActive        = 0;
+  let countOverdue       = 0;
+  let countCompleted     = 0;
+  const today = new Date();
 
-  var activeCt = loans.filter(function(l){ return l.status === "active"; }).length;
+  for (const l of _allLoans) {
+    totalLoaned += l.amount;
 
-  document.getElementById("totalLoaned").textContent = loaned.toFixed(2) + " XCG";
-  document.getElementById("totalDue").textContent    = dueAmt.toFixed(2) + " XCG";
-  document.getElementById("countActive").textContent= activeCt;
+    // initial total = principal + (principal * rate * duration)
+    const initInterest = l.amount * defaultInterestRate * l.duration;
+    const initTotal    = l.amount + initInterest;
 
-  var pCtx = document.getElementById("pieChart").getContext("2d");
-  var bCtx = document.getElementById("barChart").getContext("2d");
+    // sum of payments
+    const paid = (_paymentsMap[l.id]||[]).reduce((sum,p)=>sum+p.amount, 0);
+
+    // remaining due on this loan
+    const remaining = initTotal - paid;
+    totalDue += remaining;
+
+    // how much interest remains (on the remaining principal proportionally)
+    // (this is “expected” additional interest)
+    expectedInterest += remaining - (l.amount - paid);
+
+    // status counts
+    const dueDate = new Date(l.start_date);
+    dueDate.setMonth(dueDate.getMonth() + l.duration);
+    if (paid >= initTotal) {
+      countCompleted++;
+    } else {
+      countActive++;
+      if (today > dueDate) countOverdue++;
+    }
+  }
+
+  // 3) Write out
+  document.getElementById("totalLoaned"       ).textContent = totalLoaned.toFixed(2)      + " XCG";
+  document.getElementById("totalDue"          ).textContent = totalDue.toFixed(2)         + " XCG";
+  document.getElementById("expectedInterest"  ).textContent = expectedInterest.toFixed(2) + " XCG";
+  document.getElementById("countActive"       ).textContent = countActive;
+  document.getElementById("countOverdue"      ).textContent = countOverdue;
+  document.getElementById("countCompleted"    ).textContent = countCompleted;
+
+  // 4) Charts: pie = [Loaned, Due]  bar = [Active, Completed, Overdue]
+  const pCtx = document.getElementById("pieChart").getContext("2d"),
+        bCtx = document.getElementById("barChart").getContext("2d");
   if (pieChart) pieChart.destroy();
   if (barChart) barChart.destroy();
 
@@ -89,20 +147,33 @@ async function updateDashboard() {
     type: "pie",
     data: {
       labels: ["Loaned","Due"],
-      datasets: [{ data:[loaned,dueAmt], backgroundColor:["#263238","#ec407a"] }]
+      datasets: [{ data:[totalLoaned, totalDue], backgroundColor:["#263238","#ec407a"] }]
     }
   });
   barChart = new Chart(bCtx, {
     type: "bar",
     data: {
-      labels: ["Active","Completed"],
-      datasets: [{ data:[
-        activeCt,
-        loans.filter(function(l){ return l.status==="completed"; }).length
-      ], backgroundColor:["#42a5f5","#66bb6a"] }]
-    }
+      labels: ["Active","Completed","Overdue"],
+      datasets: [{
+        data: [countActive, countCompleted, countOverdue],
+        backgroundColor:["#42a5f5","#66bb6a","#e53935"]
+      }]
+    },
+    options: { scales:{ y:{ beginAtZero:true } } }
   });
 }
+// inside updateDashboard() or wherever you compute fines:
+const feePerDay = parseFloat(localStorage.getItem("lateFee"))||0;
+let totalFine = 0;
+for (const l of _allLoans) {
+  // compute dueDate & paidSum as before...
+  if (today > dueDate && paidSum < initTotal) {
+    const daysOver = Math.floor((today - dueDate)/86400000);
+    totalFine += daysOver * feePerDay;
+  }
+}
+// you could render totalFine anywhere (e.g. add a new card)
+
 
 // ─── CALCULATOR ─────────────────────────────────────────────────────
 function buildSchedule(principal, rate, months) {
@@ -118,57 +189,57 @@ function buildSchedule(principal, rate, months) {
 }
 
 function calculateLoan() {
-  var amt    = parseFloat(document.getElementById("calcAmount").value);
-  var months = parseInt(document.getElementById("calcMonths").value, 10);
+  const amt    = parseFloat(document.getElementById("calcAmount").value);
+  const months = parseInt(document.getElementById("calcMonths").value, 10);
   if (!amt || !months) return;
 
-  var sched = buildSchedule(amt, defaultInterestRate, months);
-  var totalPaid     = sched.reduce(function(s, r){ return s + r.payment; }, 0);
-  var totalInterest = totalPaid - amt;
+  const sched = buildSchedule(amt, defaultInterestRate, months);
+  let totalPaid = 0;
+  for (let i = 0; i < sched.length; i++) totalPaid += sched[i].payment;
+  const totalInterest = totalPaid - amt;
 
   document.getElementById("calcInterest").textContent = totalInterest.toFixed(2);
-  document.getElementById("calcTotal").textContent    = totalPaid.toFixed(2);
-  document.getElementById("calcMonthly").textContent  = (totalPaid/months).toFixed(2);
-  document.getElementById("calcResults").style.display = "grid";
+  document.getElementById("calcTotal"   ).textContent = totalPaid.toFixed(2);
+  document.getElementById("calcMonthly" ).textContent = (totalPaid/months).toFixed(2);
+  document.getElementById("calcResults" ).style.display = "grid";
 
-  // Build the schedule cards without any line-starting '+'
-  var parts = [];
-  parts.push('<div class="schedule-cards">');
-
-  for (var i = 0; i < sched.length; i++) {
-    var r = sched[i];
-    parts.push('<div class="schedule-card">');
-    parts.push('<div class="card-month">Month ' + r.month + '</div>');
-    parts.push('<div class="card-detail"><strong>Payment:</strong> ' + r.payment.toFixed(2) + ' XCG</div>');
-    parts.push('<div class="card-detail"><strong>Interest:</strong> ' + r.nextInt.toFixed(2) + ' XCG</div>');
-    parts.push('</div>');
+  const schEl = document.getElementById("calcSchedule");
+  schEl.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "schedule-cards";
+  for (let i = 0; i < sched.length; i++) {
+    const r = sched[i];
+    const card = document.createElement("div");
+    card.className = "schedule-card";
+    card.innerHTML =
+      `<div class="card-month">Month ${r.month}</div>` +
+      `<div class="card-detail"><strong>Payment:</strong> ${r.payment.toFixed(2)} XCG</div>` +
+      `<div class="card-detail"><strong>Interest:</strong> ${r.nextInt.toFixed(2)} XCG</div>`;
+    wrap.appendChild(card);
   }
+  schEl.appendChild(wrap);
 
-  parts.push('</div>');
-  var html = parts.join('');
-
-  document.getElementById("calcSchedule").innerHTML      = html;
   document.getElementById("calcTotalInterest").textContent =
     "Total Interest Earned: " + totalInterest.toFixed(2) + " XCG";
 }
 
-function prefillLoanForm(){
-  document.getElementById("amount").value   =
-    document.getElementById("calcAmount").value;
-  document.getElementById("duration").value =
-    document.getElementById("calcMonths").value;
+function prefillLoanForm() {
+  document.getElementById("amount"  ).value = document.getElementById("calcAmount").value;
+  document.getElementById("duration").value = document.getElementById("calcMonths").value;
   toggleLoanForm(true);
 }
 
-// ─── NEW LOAN CREATION ─────────────────────────────────────────────
-function toggleLoanForm(show){
-  document.getElementById("loanModal").classList.toggle("show", !!show);
+// ─── NEW LOAN ───────────────────────────────────────────────────────
+function toggleLoanForm(show) {
+  const m = document.getElementById("loanModal");
+  m.classList.toggle("show", !!show);
   document.querySelector(".fab").style.display =
-    show ? "none" : document.getElementById("loans").classList.contains("active") ? "block" : "none";
+    show ? "none"
+         : document.getElementById("loans").classList.contains("active") ? "block" : "none";
 }
 
-async function saveLoan(){
-  var loan = {
+async function saveLoan() {
+  const loan = {
     name:       document.getElementById("name").value,
     phone:      document.getElementById("phone").value,
     amount:     +document.getElementById("amount").value,
@@ -177,145 +248,145 @@ async function saveLoan(){
     paid:       0,
     status:     "active"
   };
-  var res = await sb.from("loans").insert([loan]);
+  const res = await sb.from("loans").insert([loan]);
   if (res.error) return alert(res.error.message);
   toggleLoanForm(false);
   await loadAllData();
 }
 
-// ─── PAYMENTS: OPEN/CLOSE & SUBMIT ─────────────────────────────────
+// ─── PAYMENTS ────────────────────────────────────────────────────────
 function togglePaymentModal(show, id) {
   currentLoanId = id || currentLoanId;
-  var modal = document.getElementById("paymentModal");
-  modal.classList.toggle("show", !!show);
+  const m = document.getElementById("paymentModal");
+  m.classList.toggle("show", !!show);
   if (show) {
     document.getElementById("paymentAmount").value = "";
-    document.getElementById("paymentDate").value   = new Date().toISOString().slice(0,10);
+    document.getElementById("paymentDate"  ).value = new Date().toISOString().slice(0,10);
   }
 }
 
-async function submitPayment(){
-  var amt  = parseFloat(document.getElementById("paymentAmount").value);
-  var date = document.getElementById("paymentDate").value;
-  if (!amt || !date) {
-    return alert("Please enter both date and amount.");
-  }
+async function submitPayment() {
+  const amt  = parseFloat(document.getElementById("paymentAmount").value);
+  const date = document.getElementById("paymentDate"  ).value;
+  if (!amt || !date) return alert("Please enter both date and amount.");
 
-  var res = await sb.from("payments").insert([{
-    loan_id: currentLoanId,
-    amount:  amt,
-    date:    date
+  const res = await sb.from("payments").insert([{
+    loan_id:  currentLoanId,
+    amount:   amt,
+    date:     date
   }]);
   if (res.error) return alert(res.error.message);
 
   togglePaymentModal(false);
+  expandedLoanIds.add(currentLoanId);
   await loadAllData();
 }
 
-// ─── LOANS TAB: FILTER & RENDER ───────────────────────────────────
+// ─── LOANS LIST ─────────────────────────────────────────────────────
 function applyFilters() {
-  var term      = document.getElementById("loanSearch").value.trim().toLowerCase();
-  var status    = document.getElementById("statusFilter").value;
-  var container = document.getElementById("loanList");
+  const term      = document.getElementById("loanSearch").value.trim().toLowerCase();
+  const status    = document.getElementById("statusFilter").value;
+  const container = document.getElementById("loanList");
   container.innerHTML = "";
 
-  _allLoans.forEach(function(l) {
-    // Compute interest, totals, etc. (same as before)
-    var origInterest = l.amount * defaultInterestRate * l.duration;
-    var totalDue     = l.amount + origInterest;
+  for (let i = 0; i < _allLoans.length; i++) {
+    const l = _allLoans[i];
+    const origInt = l.amount * defaultInterestRate * l.duration;
+    const totDue  = l.amount + origInt;
+    const pmts    = _paymentsMap[l.id] || [];
+    let paidSum   = 0;
+    for (let j = 0; j < pmts.length; j++) paidSum += pmts[j].amount;
 
-    var pmts = _paymentsMap[l.id] || [];
-    var paidSum = 0, lastPayDate = "";
-    pmts.forEach(function(p) {
-      paidSum += p.amount;
-      lastPayDate = p.date;
-    });
+    const d      = new Date(l.start_date);
+    d.setMonth(d.getMonth() + l.duration);
+    const dueStr = d.toISOString().slice(0,10);
+    const dispSt = (paidSum >= totDue) ? "completed" : "active";
 
-    var remaining   = totalDue - paidSum;
-    var newInterest = remaining * defaultInterestRate;
-    var newTotalDue = remaining + newInterest;
+    if (status !== "all" && dispSt !== status) continue;
+    if (term && l.name.toLowerCase().indexOf(term) === -1) continue;
 
-    var dueDate = new Date(l.start_date);
-    dueDate.setMonth(dueDate.getMonth() + l.duration);
-    var dueDateStr = dueDate.toISOString().slice(0,10);
-    var dispStatus = (paidSum >= totalDue) ? "completed" : "active";
+    const loanId   = l.id;
+    const expanded = expandedLoanIds.has(loanId);
 
-    // Filters
-    if (status !== "all" && dispStatus !== status) return;
-    if (term && l.name.toLowerCase().indexOf(term) === -1) return;
+    const card = document.createElement("div");
+    card.className = "loan-card" + (expanded ? " expanded" : "");
 
-    // Build card container
-    var isExpanded = expandedLoanIds.has(l.id);
-    var card = document.createElement("div");
-    card.className = "loan-card" + (isExpanded ? " expanded" : "");
+    // header
+    const hdr = document.createElement("div");
+    hdr.className = "loan-card-header";
+    hdr.innerHTML =
+      `<span class="loan-name">${l.name}</span>` +
+      `<span class="status-pill ${dispSt}">${dispSt}</span>`;
+    hdr.addEventListener("click", handleHeaderClick.bind(null, loanId));
+    card.appendChild(hdr);
 
-    // Header (name + status)
-    var header = document.createElement("div");
-    header.className = "loan-card-header";
-    header.innerHTML = `<span class="loan-name">${l.name}</span>
-                        <span class="status-pill ${dispStatus}">${dispStatus}</span>`;
-    header.addEventListener("click", function(){
-      toggleExpand(l.id);
-    });
-    card.appendChild(header);
-
-    // Body (hidden until expanded)
-    var body = document.createElement("div");
+    // body
+    const body = document.createElement("div");
     body.className = "loan-card-body";
-    body.innerHTML = `
-      <div class="field"><span>Loan Amount:</span><span>${l.amount.toFixed(2)} XCG</span></div>
-      <div class="field"><span>Interest:</span><span>${origInterest.toFixed(2)} XCG</span></div>
-      <div class="field"><span>Repay Total:</span><span>${totalDue.toFixed(2)} XCG</span></div>
-      <div class="field"><span>Repay Date:</span><span>${dueDateStr}</span></div>
-    `;
+    const fields = [
+      ["Loan Amount:",  l.amount.toFixed(2) + " XCG"],
+      ["Interest:",     origInt.toFixed(2)    + " XCG"],
+      ["Repay Total:",  totDue.toFixed(2)     + " XCG"],
+      ["Repay Date:",    dueStr]
+    ];
+    for (let f = 0; f < fields.length; f++) {
+      const pair = fields[f];
+      const fld = document.createElement("div");
+      fld.className = "field";
+      fld.innerHTML = `<span>${pair[0]}</span><span>${pair[1]}</span>`;
+      body.appendChild(fld);
+    }
 
     // Pay button
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "pay-btn";
+    const btn = document.createElement("button");
+    btn.className   = "pay-btn";
     btn.textContent = "Pay";
-    btn.addEventListener("click", function(e){
-      e.stopPropagation();
-      togglePaymentModal(true, l.id);
-    });
+    btn.addEventListener("click", handlePayClick.bind(null, loanId));
     body.appendChild(btn);
 
-    // Additional payment info if any
-    if (pmts.length > 0) {
-      var hr = document.createElement("hr");
-      body.appendChild(hr);
-
-      [["Paid So Far:", paidSum.toFixed(2) + " XCG"],
-       ["Last Paid:",  lastPayDate],
-       ["Remaining:",  remaining.toFixed(2) + " XCG"],
-       ["New Interest:", newInterest.toFixed(2) + " XCG"],
-       ["New Total:",   newTotalDue.toFixed(2) + " XCG"]
-      ].forEach(function(pair){
-        var fld = document.createElement("div");
+    // extras
+    if (pmts.length) {
+      body.appendChild(document.createElement("hr"));
+      const extras = [
+        ["Paid So Far:",    paidSum.toFixed(2) + " XCG"],
+        ["Remaining:",      (totDue - paidSum).toFixed(2) + " XCG"],
+        ["New Interest:",   ((totDue - paidSum)*defaultInterestRate).toFixed(2) + " XCG"],
+        ["New Total:",      ((totDue - paidSum)*(1+defaultInterestRate)).toFixed(2) + " XCG"]
+      ];
+      for (let e = 0; e < extras.length; e++) {
+        const pair = extras[e];
+        const fld = document.createElement("div");
         fld.className = "field";
         fld.innerHTML = `<span>${pair[0]}</span><span>${pair[1]}</span>`;
         body.appendChild(fld);
-      });
+      }
     }
 
+    body.style.display = expanded ? "block" : "none";
     card.appendChild(body);
     container.appendChild(card);
-  });
+  }
 }
 
-function toggleExpand(id){
-  if (expandedLoanIds.has(id)) expandedLoanIds.delete(id);
-  else                         expandedLoanIds.add(id);
+// ─── HANDLERS ───────────────────────────────────────────────────────
+function handleHeaderClick(loanId) {
+  if (expandedLoanIds.has(loanId)) expandedLoanIds.delete(loanId);
+  else expandedLoanIds.add(loanId);
   applyFilters();
 }
 
+function handlePayClick(loanId, e) {
+  e.stopPropagation();
+  togglePaymentModal(true, loanId);
+}
+
 // ─── SETTINGS ─────────────────────────────────────────────────────
-function setInterestRate(v){
-  defaultInterestRate = parseFloat(v)/100;
+function setInterestRate(v) {
+  defaultInterestRate = parseFloat(v) / 100;
   localStorage.setItem("interestRate", defaultInterestRate);
 }
 
-// ─── EXPOSE HANDLERS ───────────────────────────────────────────────
+// ─── EXPORT ───────────────────────────────────────────────────────
 window.selectTab           = selectTab;
 window.calculateLoan       = calculateLoan;
 window.prefillLoanForm     = prefillLoanForm;
@@ -324,5 +395,5 @@ window.saveLoan            = saveLoan;
 window.togglePaymentModal  = togglePaymentModal;
 window.submitPayment       = submitPayment;
 window.applyFilters        = applyFilters;
-window.toggleExpand        = toggleExpand;
 window.setInterestRate     = setInterestRate;
+

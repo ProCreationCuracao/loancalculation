@@ -12,17 +12,14 @@
   <link rel="icon" href="icons/icon.png" type="image/png">
 
   <link rel="stylesheet" href="style.css">
-
-  <!-- Chart.js & Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
     const SUPABASE_URL      = "https://xczrpjcoqezlgnpevxxc.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjenJwamNvcWV6bGducGV2eHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4ODkzNjcsImV4cCI6MjA2NjQ2NTM2N30.S7JlkTAcORatxZpwdhFt6RTc36SuMuRyRXlQLsEueSE";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjenJwamNvcWV6bGducGV2eHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4ODkzNjcsImV4cCI6MjA2NjQ2NTM2N30.S7JlkTAcORatxZpwdhFt6RTc36SuMuRyRXlQLsEueSE"
     window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 </head>
-
 <body>
   <header>
     <img src="logo.png" class="logo" alt="Logo">
@@ -37,19 +34,24 @@
   </div>
 
   <main>
-    <!-- Dashboard -->
-    <section id="dashboard" class="tab active">
-      <div class="cards">
-        <div class="card"><h3>Total Customers</h3><p id="totalCustomers">0</p></div>
-        <div class="card"><h3>Total Loaned</h3><p id="totalLoaned">0 XCG</p></div>
-        <div class="card"><h3>Total Due</h3><p id="totalDue">0 XCG</p></div>
-        <div class="card"><h3>Active Loans</h3><p id="countActive">0</p></div>
-      </div>
-      <div class="charts">
-        <canvas id="pieChart"></canvas>
-        <canvas id="barChart"></canvas>
-      </div>
-    </section>
+   <!-- Dashboard -->
+<section id="dashboard" class="tab active">
+  <div class="cards">
+    <div class="card"><h3>Cash on Hand</h3><p id="cashOnHand">0 XCG</p></div>
+    <div class="card"><h3>Total Loaned</h3><p id="totalLoaned">0 XCG</p></div>
+    <div class="card"><h3>Active Loans</h3><p id="countActive">0</p></div>   
+    <div class="card"><h3>Expected Interest</h3><p id="expectedInterest">0 XCG</p></div>
+    <div class="card"><h3>Overdue Loans</h3><p id="countOverdue">0</p></div>
+    <div class="card"><h3>Total Due</h3><p id="totalDue">0 XCG</p></div>    
+    <div class="card"><h3>Completed Loans</h3><p id="countCompleted">0</p></div>
+  </div>
+  <div class="charts">
+    <canvas id="pieChart"></canvas>
+    <canvas id="barChart"></canvas>
+  </div>
+</section>
+
+
 
     <!-- Calculator -->
     <section id="calculator" class="tab">
@@ -57,15 +59,12 @@
         <input type="number" id="calcAmount" placeholder="Loan Amount (XCG)" />
         <input type="number" id="calcMonths" placeholder="Duration (Months)" />
         <button onclick="calculateLoan()">Calculate</button>
-
         <div id="calcResults" class="results" style="display:none">
-          <div><strong>Total Paid:</strong>    <span id="calcTotal"></span>    XCG</div>
+          <div><strong>Total Paid:</strong> <span id="calcTotal"></span> XCG</div>
           <div><strong>Total Interest:</strong> <span id="calcInterest"></span> XCG</div>
-          <div><strong>Std Payment:</strong>  <span id="calcMonthly"></span> XCG</div>
+          <div><strong>Std Payment:</strong> <span id="calcMonthly"></span> XCG</div>
           <button class="create-btn" onclick="prefillLoanForm()">Create Loan</button>
         </div>
-
-        <!-- NEW: card-based schedule -->
         <div id="calcSchedule" class="schedule"></div>
         <div id="calcTotalInterest" class="total-interest"></div>
       </div>
@@ -85,16 +84,70 @@
       <div id="loanList" class="loan-list"></div>
     </section>
 
-    <!-- Settings -->
-    <section id="settings" class="tab">
-      <div class="settings-container">
-        <label>
-          Default Interest (%/month):
-          <input id="interestRateInput" type="number" min="0" max="100"
-                 oninput="setInterestRate(this.value)" />%
+<!-- Settings (iOS-style grouped list) -->
+<section id="settings" class="tab">
+  <div class="settings-container">
+
+    <!-- Group 1: Appearance (unchanged) -->
+    <ul class="settings-group">
+      <li class="setting-item">
+        <span>Theme Color</span>
+        <input type="color" id="themeColorInput" />
+      </li>
+      <li class="setting-item">
+        <span>Logo Position</span>
+        <select id="logoPositionSelect">
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </li>
+    </ul>
+
+    <!-- Group 2: Loan Defaults (unchanged) -->
+    <ul class="settings-group">
+      <li class="setting-item">
+        <span>Default Interest (%/month)</span>
+        <input type="number" id="interestRateInput" min="0" max="100" />%
+      </li>
+      <li class="setting-item">
+        <span>Cash on Hand</span>
+        <input type="number" id="cashOnHandInput" placeholder="0.00" />
+      </li>
+    </ul>
+
+    <!-- Group 3: Notifications & Fees -->
+    <ul class="settings-group">
+      <li class="setting-item toggle">
+        <span>Payment Reminders</span>
+        <label class="switch">
+          <input type="checkbox" id="remindersToggle" />
+          <span class="slider"></span>
         </label>
-      </div>
-    </section>
+      </li>
+      <li class="setting-item">
+        <span>Late Fee (per day)</span>
+        <input type="number" id="lateFeeInput" min="0" step="0.01" /> XCG
+      </li>
+    </ul>
+
+    <!-- Group 4: About & Danger Zone -->
+    <ul class="settings-group last">
+      <li class="setting-item">
+        <span>App Version</span><span>v1.0.3</span>
+      </li>
+      <li class="setting-item">
+        <span>Support</span>
+        <a href="mailto:support@yourapp.com" style="color:var(--primary); text-decoration:none;">Email Us</a>
+      </li>
+      <li class="setting-item destructive" onclick="resetAllData()">
+        <span>Reset All Data</span>
+      </li>
+    </ul>
+
+  </div>
+</section>
+
   </main>
 
   <!-- FAB -->
