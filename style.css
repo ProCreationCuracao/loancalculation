@@ -330,5 +330,20 @@ header {
   font-size: 0.9em;
   color: #666;
 }
+.loan-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;    /* ensure vertical centering */
+}
 
+.header-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;    /* align Paid: with name baseline */
+}
+
+.loan-paid {
+  font-size: 0.9em;
+  color: #666;
+}
 
